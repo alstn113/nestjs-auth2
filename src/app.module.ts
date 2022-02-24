@@ -1,10 +1,11 @@
-import { Module } from "@nestjs/common";
+import { Module, ValidationPipe } from "@nestjs/common";
+import { APP_GUARD, APP_PIPE } from "@nestjs/core";
 import { ConfigModule, ConfigService } from "@nestjs/config";
 import configuration from "@/config/configuration";
 import { TypeOrmModule } from "@nestjs/typeorm";
 import { AuthModule } from "@/auth/auth.module";
-import { ReviewModule } from "@/review/review.module";
-import { CategoryModule } from "@/category/category.module";
+import { AtGuard } from "@/common/guards";
+import { ProductModule } from "@/product/product.module";
 
 @Module({
   imports: [
@@ -29,8 +30,17 @@ import { CategoryModule } from "@/category/category.module";
       }),
     }),
     AuthModule,
-    ReviewModule,
-    CategoryModule,
+    ProductModule,
+  ],
+  providers: [
+    {
+      provide: APP_GUARD,
+      useClass: AtGuard,
+    },
+    {
+      provide: APP_PIPE,
+      useClass: ValidationPipe,
+    },
   ],
 })
 export class AppModule {}

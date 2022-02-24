@@ -1,77 +1,83 @@
+import { Body, Controller, Get, Post, Res, UseGuards } from "@nestjs/common";
 import { AuthService } from "@/auth/auth.service";
-import {
-  Body,
-  Controller,
-  Delete,
-  Get,
-  HttpCode,
-  HttpException,
-  HttpStatus,
-  Param,
-  Post,
-  UseGuards,
-} from "@nestjs/common";
-import { AuthDto, AuthResponse } from "@/auth/dto";
-import { Tokens } from "@/auth/types";
-import { RtGuard } from "@/common/guards";
+import { AuthDto } from "./dto/auth.dto";
+import { Tokens } from "./types/tokens.type";
 import { GetCurrentUser, GetCurrentUserId, Public } from "@/common/decorators";
+import { Response } from "express";
+import { RtGuard } from "@/common/guards";
+import { ApiOperation, ApiTags } from "@nestjs/swagger";
 
-@Controller("/auth")
+//TODO: 경로들의 타입 다시 고치기
+//TODO: swagger 정확하기 고치기
+
+@Controller("auth")
+@ApiTags("auth")
 export class AuthController {
-  constructor(private authService: AuthService) {}
+  constructor(private readonly authService: AuthService) {}
 
-  @Get()
-  async findUsers(): Promise<AuthResponse[]> {
-    return this.authService.findUsers();
-  }
-
-  @Get("/:userId")
-  async findUserById(@Param("userId") userId: number): Promise<AuthResponse> {
-    const user = await this.authService.findUserById(userId);
-    if (!user) {
-      throw new HttpException("없어요 없어 하하!", 404);
-    }
-    return user;
-  }
-
-  @Delete("/:userId")
-  async deleteUserById(@Param("userId") userId: number): Promise<string> {
-    const user = await this.authService.findUserById(userId);
-    if (!user) {
-      throw new HttpException("없어요 없어 하하!", 404);
-    }
-    return await this.authService.deleteUserById(userId);
+  @Public()
+  @Post("signin/local")
+  @ApiOperation({ summary: "local 로그인", description: "local로 로그인함" })
+  async signinLocal(
+    @Body() dto: AuthDto,
+    @Res({ passthrough: true }) res: Response
+  ): Promise<Tokens> {
+    const { access_token, refresh_token } = await this.authService.signinLocal(
+      dto
+    );
+    res.cookie("refresh_token", refresh_token, {
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7d
+      httpOnly: true,
+    });
+    return { access_token, refresh_token };
   }
 
   @Public()
-  @Post("/signin/local")
-  @HttpCode(HttpStatus.OK)
-  signinLocal(@Body() dto: AuthDto): Promise<Tokens> {
-    return this.authService.signinLocal(dto);
-  }
-
-  @Public()
-  @Post("/signup/local")
-  @HttpCode(HttpStatus.CREATED)
-  signupLocal(@Body() dto: AuthDto): Promise<Tokens> {
+  @Post("signup/local")
+  @ApiOperation({
+    summary: "local 회원가입",
+    description: "local로 회원가입함",
+  })
+  signupLocal(@Body() dto: AuthDto) {
     return this.authService.signupLocal(dto);
   }
 
-  @Post("/logout")
-  @HttpCode(HttpStatus.OK)
-  logout(@GetCurrentUserId() userId: number) {
-    console.log(userId);
-    return this.authService.logout(userId);
+  @Post("logout")
+  @ApiOperation({
+    summary: "로그아웃",
+    description: "로그아웃하고 토큰을 삭제",
+  })
+  async logout(
+    @GetCurrentUserId() userId: number,
+    @Res({ passthrough: true }) res: Response
+  ) {
+    await this.authService.logout(userId);
+    res.clearCookie("refresh_token");
   }
 
   @Public()
   @UseGuards(RtGuard)
-  @Post("/refresh")
-  @HttpCode(HttpStatus.OK)
-  refreshTokens(
+  @Post("refresh")
+  @ApiOperation({
+    summary: "token 갱신",
+    description: "refresh토큰으로 access토큰과 refresh토큰 갱신",
+  })
+  async refreshTokens(
     @GetCurrentUserId() userId: number,
-    @GetCurrentUser("refreshToken") refreshToken: string
+    @GetCurrentUser("refreshToken") refreshToken: string,
+    @Res({ passthrough: true }) res: Response
   ) {
-    return this.authService.refreshTokens(userId, refreshToken);
+    const { access_token, refresh_token } =
+      await this.authService.refreshTokens(userId, refreshToken);
+    res.cookie("refresh_token", refresh_token, {
+      maxAge: 1000 * 60 * 60 * 24 * 7, // 7d
+      httpOnly: true,
+    });
+    return { access_token, refresh_token };
+  }
+  // 테스트용
+  @Get("/")
+  async findUsers() {
+    return this.authService.findUsers();
   }
 }

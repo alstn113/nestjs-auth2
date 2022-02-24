@@ -1,10 +1,10 @@
 import { EntityRepository, Repository } from "typeorm";
 import { Auth } from "@/auth/entities/auth.entity";
-import { AuthDto } from "@/auth/dto";
+import { AuthDto } from "@/auth/dto/auth.dto";
 
 @EntityRepository(Auth)
 export class AuthRepository extends Repository<Auth> {
-  findUsers(): Promise<Auth[]> {
+  findUsers() {
     return this.find();
   }
 
@@ -19,9 +19,5 @@ export class AuthRepository extends Repository<Auth> {
   createUser(dto: AuthDto) {
     const user = this.create(dto);
     return this.save(user);
-  }
-
-  deleteUserById(userId: number) {
-    this.delete({ id: userId });
   }
 }
